@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<!-- saved from url=(0051)file:///C:/Users/test4/Desktop/24hrkayak/input.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+        <title>24 Hr Static Kayaking Challenge</title>
+        <script
+            src="https://code.jquery.com/jquery-2.2.4.min.js"
+            integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44="
+        crossorigin="anonymous"></script>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js"></script>
+        <script>
+            //init vars
+            var endTime = localStorage["kyk_endTime"] ? new Date(parseInt(localStorage["kyk_endTime"])) : false; //if integer, time when 24h ends, if false, timer not running
+            var twentyfourhrs = 86400000;
+            var timeTimer = setInterval(updateTimeDisplay, 100);
+            var distTimer = false;
+            var currDist = localStorage["kyk_currDist"] ? parseFloat(localStorage["kyk_currDist"]) : 0.0; //the last entered distances from ergometer
+            var prevDist = localStorage["kyk_prevDist"] ? parseFloat(localStorage["kyk_prevDist"]) : 0.0; // WTF is this
+            var prevUpdateTime = Date.now();
+            var speed = localStorage["kyk_speed"] ? parseFloat(localStorage["kyk_speed"]) : 0.016; //default speed is 0.016, calculated by deltaDist/deltaTime
+            var fixedDonations = localStorage["kyk_fixDon"] ? parseFloat(localStorage["kyk_fixDon"]) : 0.0; //amount of fixed donations
+            var variableDonations = localStorage["kyk_varDon"] ? parseFloat(localStorage["kyk_varDon"]) : 0.0; //amount of variable donations/km
+            var distNow = localStorage["kyk_distNow"] ? parseFloat(localStorage["kyk_distNow"]) : 0.0; //displayed speed
+
+            $(document).ready(function () {
+                toggleTimer(endTime);
+
+                if (endTime)
+                    distTimer = setInterval(updateDistDisplay, 500);
+
+                $('#startTimer').click(function (e) {
+                    if (endTime)
+                    {
+                        //reset to 24 hrs
+                        localStorage.clear();
+                        currDist = 0.0;
+                        prevDist = 0.0;
+                        fixedDonations = 0;
+                        variableDonations = 0;
+                        speed = 0.016;
+                        endTime = false;
+                        clearInterval(distTimer)
+                        currDist = 0.0;
+                        $("#distcovered").html("0.000 km");
+                    }
+                    else
+                    {
+                        prevUpdateTime = Date.now();
+                        endTime += Date.now() + twentyfourhrs;
+                        localStorage.setItem("kyk_endTime", endTime);
+                        distTimer = setInterval(updateDistDisplay, 500);
+                    }
+                    toggleTimer(endTime);
+                });
+
+                $("#submitDist").click(function (e)
+                {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!endTime)
+                    {
+                        Materialize.toast('The countdown has yet to start!', 2000, 'grab');
+                    }
+                    else if (/^[0-9]*\.?[0-9]+( *, *[0-9]*\.?[0-9]+)*$/.test($("#dists").val())) //regex test to match pattern 1, 2, 3 , 44,55, 925 ,1784
+                    {
+                        var raw = $.trim($("#dists").val()).split(",").map(function (ele) {
+                            x = parseFloat(ele);
+
+                            if (isNaN(x))
+                                return 0;
+                            else
+                                return x;
+                        });
+
+                        currDist = raw.reduce((prev, curr) => prev + curr);
+                        localStorage["kyk_currDist"] = currDist;
+
+                        var deltaDist = currDist - prevDist;
+                        var deltaTime = Date.now() - prevUpdateTime
+                        speed = deltaDist / (deltaTime / 1000) //km s-1
+                        localStorage["kyk_speed"] = speed;
+                        //console.log(speed)
+
+                        prevDist = currDist;
+                        localStorage["kyk_prevDist"] = prevDist;
+
+                        prevUpdateTime = Date.now();
+
+                        $("#dists").val("");
+                        Materialize.toast('Updated', 2000, 'grab');
+                    }
+                    else
+                    {
+                        //fails regex
+                        Materialize.toast('HMM...check your input', 2000, 'grab');
+                    }
+                });
+                $("#submitFixDon").click(function (e)
+                {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!endTime)
+                    {
+                        Materialize.toast('The countdown has yet to start!', 2000, 'grab');
+                    }
+                    else if (/[-+]?(\d*[.])?\d+/.test($("#fixDon").val())) //regex test to match pattern 1, 2, 3 , 44,55, 925 ,1784
+                    {
+                        var donation = parseFloat($.trim($("#fixDon").val()));
+                        fixedDonations += donation;
+                        console.log(donation);
+                        localStorage["kyk_fixDon"] = fixedDonations;
+                        $("#fixDon").val("");
+                    }
+                    else
+                    {
+                        //fails regex
+                        Materialize.toast('HMM...check your input', 2000, 'grab');
+                    }
+                });
+                $("#submitVarDon").click(function (e)
+                {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!endTime)
+                    {
+                        Materialize.toast('The countdown has yet to start!', 2000, 'grab');
+                    }
+                    else if (/[-+]?(\d*[.])?\d+/.test($("#varDon").val())) //regex test to match pattern 1, 2, 3 , 44,55, 925 ,1784
+                    {
+                        var donation = parseFloat($.trim($("#varDon").val()));
+                        variableDonations += donation;
+                        console.log(donation);
+                        localStorage["kyk_varDon"] = variableDonations;
+                        $("#varDon").val("");
+                    }
+                    else
+                    {
+                        //fails regex
+                        Materialize.toast('HMM...check your input', 2000, 'grab');
+                    }
+                });
+            })
+
+            function updateTimeDisplay()
+            {
+                var diff = 0;
+
+                if (!endTime)
+                    diff = twentyfourhrs;
+                else
+                    diff = endTime - Date.now();
+
+                if (diff > 0)
+                    $("#timeleft").html(totime(diff));
+                else
+                {
+                    clearInterval(distTimer);
+                    $("#timeleft").html("<b style='color: #e91e63'>Time&#39;s up!</b>");
+                    localStorage.clear();
+                }
+                updateDonDisplay();
+            }
+
+            function updateDistDisplay()
+            {
+                var diff = Date.now() - prevUpdateTime;
+                //console.log(diff/1000);
+                distNow = currDist + (diff / 1000) * speed;
+                $("#distcovered").html(distNow.toFixed(1) + " km");
+                localStorage.setItem("kyk_distNow", distNow);
+            }
+
+            function updateDonDisplay()
+            {
+                var totalDonations = fixedDonations + variableDonations * distNow;
+                $("#donations").html("$" + totalDonations.toFixed(2));
+            }
+
+            function toggleTimer(started)
+            {
+                if (started)
+                {
+                    $("#startTimer").html('<i class="material-icons left">replay</i>Reset All');
+                    $("#startTimer").addClass("pink");
+                }
+                else
+                {
+                    $("#startTimer").html('<i class="material-icons left">play_arrow</i>Start Countdown');
+                    $("#startTimer").removeClass("pink");
+                }
+            }
+
+            function totime(diff)
+            {
+                var msec = diff;
+                var hh = Math.floor(msec / 1000 / 60 / 60);
+                msec -= hh * 1000 * 60 * 60;
+                var mm = Math.floor(msec / 1000 / 60);
+                msec -= mm * 1000 * 60;
+                var ss = Math.floor(msec / 1000);
+                msec -= ss * 1000;
+
+                return pad(hh) + ":" + pad(mm) + ":" + pad(ss);
+            }
+
+            function pad(num)
+            {
+                if (num < 10)
+                    return "0" + num;
+                else
+                    return num;
+            }
+        </script>
+        <link href='https://fonts.googleapis.com/css?family=Roboto:400,300,300italic,400italic,700,700italic' rel='stylesheet' type='text/css'>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <style>
+            body
+            {
+                text-align: center;
+                background-color: #EDE8E4;
+            }
+            h1
+            {
+                font-size: 4em;
+                font-weight: bold;
+            }
+            table#display
+            {
+                font-size: 5em;
+                border-collapse: collapse;
+                margin: auto;
+            }
+            table#display td
+            {
+                padding: 10px;
+                width: 50%;
+            }
+            #label_dist, #label_time, #label_don
+            {
+                text-align: right;
+                font-weight: 300;
+                color: #ff4d4d;
+            }
+            #label_dist
+            {
+                color: #4da6ff;
+            }
+            #label_don
+            {
+                color: #4da6ff; /* colour to be improved */
+            }
+            #timeleft, #distcovered
+            {
+                text-align: left;
+            }
+            #inputs
+            {
+                margin-top: 10px;
+            }
+            #inputs .row
+            {
+                text-align: left;
+                margin: 1em 5em;
+            }
+            #startTimer
+            {
+                margin-top: 20px;
+            }
+            .grab
+            {
+                cursor: grab;
+                -webkit-user-select: none; /* Chrome/Safari */        
+                -moz-user-select: none; /* Firefox */
+                -ms-user-select: none; /* IE10+ */
+
+                /* Rules below not implemented in browsers yet */
+                -o-user-select: none;
+                user-select: none;
+            }
+            .grab:active
+            {
+                cursor: grabbing;
+            }
+
+            #toast-container {
+                top: 2em;
+                right: 2.5em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>24 Hr Static Kayaking Challenge</h1>
+        <table id="display">
+            <tbody><tr>
+                    <td id="label_time">Time Left</td>
+                    <td id="timeleft" class="displayValue">24:00:00</td>
+                </tr>
+                <tr>
+                    <td id="label_dist">Distance</td>
+                    <td id="distcovered" class="displayValue">0.0 km</td>
+                </tr>
+                <tr>
+                    <td id="label_don">Donations</td>
+                    <td id="donations" class="displayValue">$0.00</td>
+                </tr>
+            </tbody></table>
+        <div id="inputs">
+            <div class="row">
+                <form class="col s12" action="#" method="POST">
+                    <div class="row">
+                        <div class="input-field col s10">
+                            <i class="material-icons prefix">straighten</i>
+                            <input id="dists" type="text">
+                            <label for="dists">Total distance (in km) travelled by each kayak, separated by commas</label>
+                        </div>
+                        <div class="input-field col s2">
+                            <button class="btn waves-effect waves-light" type="submit" id="submitDist" name="submitDist">Submit
+                                <i class="material-icons right">send</i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <form class="col s12" action="#" method="POST">
+                    <div class="row">
+                        <div class="input-field col s10">
+                            <i class="material-icons prefix">card_giftcard</i>
+                            <input id="fixDon" type="number">
+                            <label for="fixDon">New fixed donation</label>
+                        </div>
+                        <div class="input-field col s2">
+                            <button class="btn waves-effect waves-light" type="submit" id="submitFixDon" name="submitFixDon">Submit
+                                <i class="material-icons right">send</i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <form class="col s12" action="#" method="POST">
+                    <div class="row">
+                        <div class="input-field col s10">
+                            <i class="material-icons prefix">attach_money</i>
+                            <input id="varDon" type="number">
+                            <label for="varDon">New donation per km</label>
+                        </div>
+                        <div class="input-field col s2">
+                            <button class="btn waves-effect waves-light" type="submit" id="submitVarDon" name="submitVarDon">Submit
+                                <i class="material-icons right">send</i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <a class="waves-effect waves-light btn pink" id="startTimer"><i class="material-icons left">replay</i>Reset All</a>
+
+        </div>
+
+
+        <div class="hiddendiv common"></div></body></html>
