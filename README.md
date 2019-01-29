@@ -8,7 +8,7 @@ The aim was to project some form of display on a screen so that the participants
 
 Actual deployment was on the [club server](https://infocommsociety.com/~yicheng/24hrkayak/).
 
-- Li Yicheng, Sun Yudong ([sunjerry019](//github.com/sunjerry019)), 2016
+&copy; Li Yicheng, Sun Yudong ([sunjerry019](//github.com/sunjerry019)), 2016
 
 Repository was hosted as an afterthought and hence does not accurately depict the contribution history.
 
